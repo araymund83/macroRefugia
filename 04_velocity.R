@@ -11,38 +11,35 @@ pathFut <- 'inputs/predictions'
 pathPres <- 'inputs/current'
 dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
-
+gcms <- c('CCSM4', 'GFDLCM3', 'INMCM4')
 species <- basename(dirsFut)
-ecor <- terra::rast('./inputs/RTM_BCR6_NT1.tif')
+
 
 # Velocity metric ---------------------------------------------------------
-get_velocity <- function(sp){
-  #sp <- species[1]
+get_velocity <- function(sp, gcm){
+  sp <- species[1]
+  gcm <- gcms[1]
   flsFut <- grep(sp, dirsFut, value = TRUE)
   flsPres <- grep(sp, dirsPres, value = TRUE)
   flsFut <- dir_ls(flsFut)
+  flsFut <- grep(gcm, flsFut, value = TRUE)
   flsPres <- dir_ls(flsPres)
-  flsPres <- grep('NA_range.tif', flsPres, value = TRUE)
-  
+  flsPres <- grep('NA_range_masked.tif', flsPres, value = TRUE)
+
   rsltdo <- map(.x = 1:length(flsFut), .f = function(i){
     
-    #i <- 1 # Run and erase
-    cat('Start ', flsFut[i], '\t')
-    cat('Start ', sp, '\t')
-    
+   # i <- 1 # Run and erase
+    cat('Start ', basename(flsFut[i]), '\t')
     fleFut <- flsFut[i]
     rstPres <- terra::rast(flsPres)
     rstFut <- terra::rast(fleFut)
-    
-    msk <- rstPres * 0 + 1
-    
+    emptyRas <- rstPres * 0 + 1  
     
     tblPres <- terra::as.data.frame(rstPres, xy = TRUE)
     colnames(tblPres)[3] <- 'prev'
     tblFut <- terra::as.data.frame(rstFut, xy = TRUE)
     colnames(tblFut)[3] <- 'prev'
     
-   # p.xy <- mutate(tblPres, pixelID = 1:nrow(tblPres)) %>% dplyr::select(pixelID, x, y, prev) %>% as.matrix()
     p.xy <- mutate(tblPres, pixelID = 1:nrow(tblPres)) %>% dplyr::select(pixelID, x, y, prev) 
     f.xy <- mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% dplyr::select(pixelID, x, y, prev) 
    
@@ -50,16 +47,13 @@ get_velocity <- function(sp){
     f.xy2 <-filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
     
     if(nrow(f.xy) > 0){
-      
       d.ann <- as.data.frame(ann(
         as.matrix(p.xy2[,-1, drop = FALSE]),
         as.matrix(f.xy2[,-1, drop = FALSE]),
         k = 1, verbose = F)$knnIndexDist)
       d1b <- as.data.frame(cbind(f.xy2, round(sqrt(d.ann[,2]))))
       names(d1b) <- c("ID","X","Y","bvel")
-      
     } else {
-      
       print(spec[i])
     }
     
@@ -70,35 +64,45 @@ get_velocity <- function(sp){
     d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5))
     sppref <- rast(d1b[,c(2,3,6)])
     sppref[is.na(sppref)] <- 0
-    terra::crs(sppref) <- terra::crs(msk)
-    tblFut <- terra::as.data.frame(tblFut, xy = TRUE)
-    tblMsk <- terra::as.data.frame(msk,    xy = TRUE)
-    tblMsk <- rownames_to_column(tblMsk)
-    tblFut <- rownames_to_column(tblFut)
-    tblMskFut <- full_join(tblMsk, tblFut, by = c('rowname', 'x', 'y'))
-    tblMskFut <- dplyr::select(tblMskFut, 2:5)
-    futprevstack <- terra::rast(tblMskFut, type = 'xyz')
-    
-  
+    e<- ext(emptyRas)
+    spprefExt <- extend(sppref,e)
+    refstack <- c(spprefExt, emptyRas)
+    futprevstack <- c(emptyRas, rstFut)
+    # reterra::crs(sppref) <- terra::crs(msk)
+    # tblFut <- terra::as.data.frame(tblFut, xy = TRUE)
+    # tblMsk <- terra::as.data.frame(msk,    xy = TRUE)
+    # tblMsk <- rownames_to_column(tblMsk)
+    # tblFut <- rownames_to_column(tblFut)
+    # tblMskFut <- full_join(tblMsk, tblFut, by = c('rowname', 'x', 'y'))
+    # tblMskFut <- dplyr::select(tblMskFut, 2:5)
+    # futprevstack <- terra::rast(tblMskFut, type = 'xyz')
     cat('Done ', flsFut[i], '\n')
-    return(list(futprevstack, msk))
+    return(list(futprevstack, refstack))
    })
-  save(rsltdo, file = './test_v1.RData')
-  tst <- rsltdo[[1]]
-  futprevmean <- terra::lapp(rsltdo[[1]], fun = 'mean')
-  nmsFut <- basename(flsFut)
-  nmsFut <- as.character(nmsFut)
-  ts2 <- lapply(1:length(rsltdo), function(h) rsltdo[[h]][[1]])
-  ts2 <- lapply(1:length(ts2), function(h){
-    
-    names(ts2[[h]])[[1]] <- nmsFut[h]
-    
-  
  
-    
-})
-
+  # Getting the Future rasters
+  ftr.trr <- map(1:length(rsltdo), function(h) rsltdo[[h]][[1]])
+  ftr.stk <- map(1:length(ftr.trr), function(h) ftr.trr[[h]][[2]])
+  ftr.stk <- do.call(what = c, args = ftr.stk)
+  ftr.avg <- terra::app(ftr.stk, fun = 'mean')
   
-}
-  
+  # Average - Ref Stack
+  ref.stk <- map(1:length(rsltdo), function(h) rsltdo[[h]][[2]])
+  ref.stk <- map(1:length(ref.stk), function(h) ref.stk[[h]][[1]])
+  ref.stk <- do.call(what = c, args = ref.stk)
+  ref.avg <- terra::app(ref.stk, fun = 'mean')
+ 
+  # To write these rasters
+  dir.out <- glue('./outputs/velocity/{sp}')
+  ifelse(!file.exists(dir.out), dir_create(dir.out), print('Exists'))
+  terra::writeRaster(x = ftr.avg, filename = glue('{dir.out}/futureprev_{sp}_{gcm}.tif'), overwrite = TRUE)
+  terra::writeRaster(x = ref.avg, filename = glue('{dir.out}/refugia_{sp}_{gcm}.tif'), overwrite = TRUE)
+  cat('Done!\n')
+} 
+  #  par(mfrow = c(1, 2))
+  #  plot(ftr.avg, main = 'Future')
+  #  plot(ref.avg, main = 'Refugia')
+  # # par(mfrow = c(1, 1))
+  # # }
+  #
  
