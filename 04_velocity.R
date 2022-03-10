@@ -1,108 +1,120 @@
 # Load libraries ----------------------------------------------------------
 library(pacman)
 pacman::p_load(dplyr, fs, fst, gdata, glue, quantreg, rasterVis, reproducible,
-               stringr,tidyverse, terra, yaImpute )
+               stringr,tidyverse, terra, yaImpute)
+g <- gc(reset = TRUE)
+rm(list = ls())
 
 # Functions ---------------------------------------------------------------
 source('./R/fatTail.R')
 # Load data ---------------------------------------------------------------
-
 pathFut <- 'inputs/predictions'
-pathPres <- 'inputs/current'
-dirsFut <- fs::dir_ls(pathFut, type = 'directory')
+pathPres <- 'inputs/present'
+dirsFut <- fs::dir_ls(pathFut, type =
+                        'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 gcms <- c('CCSM4', 'GFDLCM3', 'INMCM4')
 species <- basename(dirsFut)
-
+ext <- c(-5546387, 5722613, -2914819, 5915181) 
 
 # Velocity metric ---------------------------------------------------------
-get_velocity <- function(sp, gcm){
-  sp <- species[1]
-  gcm <- gcms[1]
+get_velocity <- function(sp){
+ #sp <- species[2]
+  message(crayon::blue('Starting with:', sp, '\n'))
   flsFut <- grep(sp, dirsFut, value = TRUE)
-  flsPres <- grep(sp, dirsPres, value = TRUE)
+  dirPres <- grep(sp, dirsPres, value = TRUE)
   flsFut <- dir_ls(flsFut)
-  flsFut <- grep(gcm, flsFut, value = TRUE)
-  flsPres <- dir_ls(flsPres)
-  flsPres <- grep('NA_range_masked.tif', flsPres, value = TRUE)
-
-  rsltdo <- map(.x = 1:length(flsFut), .f = function(i){
-    
-   # i <- 1 # Run and erase
-    cat('Start ', basename(flsFut[i]), '\t')
-    fleFut <- flsFut[i]
-    rstPres <- terra::rast(flsPres)
-    rstFut <- terra::rast(fleFut)
-    emptyRas <- rstPres * 0 + 1  
-    
-    tblPres <- terra::as.data.frame(rstPres, xy = TRUE)
-    colnames(tblPres)[3] <- 'prev'
-    tblFut <- terra::as.data.frame(rstFut, xy = TRUE)
-    colnames(tblFut)[3] <- 'prev'
-    
-    p.xy <- mutate(tblPres, pixelID = 1:nrow(tblPres)) %>% dplyr::select(pixelID, x, y, prev) 
-    f.xy <- mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% dplyr::select(pixelID, x, y, prev) 
-   
-    p.xy2 <-filter(p.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
-    f.xy2 <-filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
-    
-    if(nrow(f.xy) > 0){
-      d.ann <- as.data.frame(ann(
-        as.matrix(p.xy2[,-1, drop = FALSE]),
-        as.matrix(f.xy2[,-1, drop = FALSE]),
-        k = 1, verbose = F)$knnIndexDist)
-      d1b <- as.data.frame(cbind(f.xy2, round(sqrt(d.ann[,2]))))
-      names(d1b) <- c("ID","X","Y","bvel")
-    } else {
-      print(spec[i])
-    }
-    
-    f.xy <- as.data.frame(f.xy)
-    colnames(f.xy) <- c('ID', 'X', 'Y', 'Pres')
-    f.xy <- as_tibble(f.xy)
-    d1b <- left_join(f.xy, d1b, by = c('ID', 'X', 'Y'))
-    d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5))
-    sppref <- rast(d1b[,c(2,3,6)])
-    sppref[is.na(sppref)] <- 0
-    e<- ext(emptyRas)
-    spprefExt <- extend(sppref,e)
-    refstack <- c(spprefExt, emptyRas)
-    futprevstack <- c(emptyRas, rstFut)
-    # reterra::crs(sppref) <- terra::crs(msk)
-    # tblFut <- terra::as.data.frame(tblFut, xy = TRUE)
-    # tblMsk <- terra::as.data.frame(msk,    xy = TRUE)
-    # tblMsk <- rownames_to_column(tblMsk)
-    # tblFut <- rownames_to_column(tblFut)
-    # tblMskFut <- full_join(tblMsk, tblFut, by = c('rowname', 'x', 'y'))
-    # tblMskFut <- dplyr::select(tblMskFut, 2:5)
-    # futprevstack <- terra::rast(tblMskFut, type = 'xyz')
-    cat('Done ', flsFut[i], '\n')
-    return(list(futprevstack, refstack))
-   })
+  rcp <- c('45', '85')
+  #gcm <- str_sub(basename(flsFut),start = 46, end = nchar(basename(flsFut)) -17) # this will change if the file_name structure changes
+  #gcm <- unique(gcm)
+  #yrs <- parse_number(basename(flsFut))
+  #yrs <- unique(yrs)
+  yrs <- c('2025','2055', '2085')
  
-  # Getting the Future rasters
-  ftr.trr <- map(1:length(rsltdo), function(h) rsltdo[[h]][[1]])
-  ftr.stk <- map(1:length(ftr.trr), function(h) ftr.trr[[h]][[2]])
-  ftr.stk <- do.call(what = c, args = ftr.stk)
-  ftr.avg <- terra::app(ftr.stk, fun = 'mean')
   
-  # Average - Ref Stack
-  ref.stk <- map(1:length(rsltdo), function(h) rsltdo[[h]][[2]])
-  ref.stk <- map(1:length(ref.stk), function(h) ref.stk[[h]][[1]])
-  ref.stk <- do.call(what = c, args = ref.stk)
-  ref.avg <- terra::app(ref.stk, fun = 'mean')
- 
-  # To write these rasters
-  dir.out <- glue('./outputs/velocity/{sp}')
-  ifelse(!file.exists(dir.out), dir_create(dir.out), print('Exists'))
-  terra::writeRaster(x = ftr.avg, filename = glue('{dir.out}/futureprev_{sp}_{gcm}.tif'), overwrite = TRUE)
-  terra::writeRaster(x = ref.avg, filename = glue('{dir.out}/refugia_{sp}_{gcm}.tif'), overwrite = TRUE)
-  cat('Done!\n')
-} 
-  #  par(mfrow = c(1, 2))
-  #  plot(ftr.avg, main = 'Future')
-  #  plot(ref.avg, main = 'Refugia')
-  # # par(mfrow = c(1, 1))
-  # # }
-  #
- 
+  rsltdo <- map(.x = 1:length(rcp), function(k){
+    message(crayon::blue('Applying to rcp', k ,'\n'))
+    flsFut <- grep(rcp[k], flsFut, value = TRUE)
+  
+    rs <- map(.x = 1:length(yrs), .f = function(i){
+      message(crayon::blue('Applying to period',i, '\n'))
+      flsPres <- dir_ls(dirPres)
+      
+      cat(flsPres, '\n')
+      flsPres <- grep('range_masked.tif', flsPres, value = TRUE)
+      fleFut <- grep(yrs[i], flsFut, value = TRUE)
+      
+      rstPres <- terra::rast(flsPres)
+      rstFut <- terra::rast(fleFut)
+      emptyRas <- rstPres * 0 + 1 
+      terra::ext(emptyRas) <- ext
+    
+      tblPres <- terra::as.data.frame(rstPres, xy = TRUE)
+      colnames(tblPres)[3] <- 'prev'
+      tblFut <- terra::as.data.frame(rstFut, xy = TRUE)
+      colnames(tblFut)[3] <- 'prev'
+      
+      p.xy <- mutate(tblPres, pixelID = 1:nrow(tblPres)) %>% dplyr::select(pixelID, x, y, prev) 
+      f.xy <- mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% dplyr::select(pixelID, x, y, prev) 
+      
+      p.xy2 <-filter(p.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
+      f.xy2 <-filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
+      
+      if(nrow(f.xy) > 0){
+        d.ann <- as.data.frame(ann(
+          as.matrix(p.xy2[,-1, drop = FALSE]),
+          as.matrix(f.xy2[,-1, drop = FALSE]),
+          k = 1, verbose = F)$knnIndexDist)
+        d1b <- as.data.frame(cbind(f.xy2, round(sqrt(d.ann[,2]))))
+        names(d1b) <- c("ID","X","Y","bvel")
+      } else {
+        print(spec[i])
+      }
+      f.xy <- as.data.frame(f.xy)
+      colnames(f.xy) <- c('ID', 'X', 'Y', 'Pres')
+      f.xy <- as_tibble(f.xy)
+      d1b <- left_join(f.xy, d1b, by = c('ID', 'X', 'Y'))
+      d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5))
+      sppref <- rast(d1b[,c(2,3,6)])
+      sppref[is.na(sppref)] <- 0
+      crs(sppref) <- crs(emptyRas)
+      sppref <- crop(sppref, emptyRas)
+      refstack <- sppref
+      
+      #rstFut <- crop(rstFut,emptyRas)
+      futprevstack <- rstFut
+      
+     cat('Done ', flsFut[i], '\n')
+      return(list(futprevstack, refstack))
+    })
+
+    # Getting the Future rasters
+    ftr.stk <- map(1:length(rs), function(h) rs[[h]][[1]])
+    ftr.stk <- map(1:length(ftr.stk), function(h) mean(ftr.stk[[h]]))
+    ftr.stk <- rast(ftr.stk)
+    names(ftr.stk) <- glue('y{yrs}')
+   
+    ## obtain mean for the reference stack
+    ref.stk <- map(1:length(rs), function(h) rs[[h]][[2]])
+    ## the only way I could solve the extention and dimension problems was by resampling
+    ref.stk[[1]]<- resample(ref.stk[[1]], ref.stk[[3]])
+    ref.stk[[2]]<- resample(ref.stk[[2]], ref.stk[[3]])
+    #ref.stk <- map(1:length(rs), function(h) crop(ref.stk[[h]], ext(emptyRas))) # is tis not croping to the same extent
+    ref.stk <- rast(ref.stk)
+    ref.stk <- terra::app(t, fun = 'mean')
+    
+    # Write these rasters
+    out <- glue('./outputs/velocity/{sp}')
+    ifelse(!file.exists(out), dir_create(out), print('Already exists'))
+    terra::writeRaster(ftr.stk, glue('{out}/{sp}_futprev_{rcp[k]}.tif'), overwrite = TRUE)
+    terra::writeRaster(ref.stk, glue('{out}/{sp}refugia_{rcp[k]}.tif'), overwrite = TRUE)
+    cat('Finish!\n')
+    })
+  }
+  
+# Apply the function velocity ---------------------------------------------
+map(species, get_velocity)
+
+parfrow
+
+
