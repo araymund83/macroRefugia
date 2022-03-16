@@ -8,7 +8,7 @@ downloadRasters <- function(folderUrl,
   ## drive_ls function is used to list all the files it finds using the folder url with the given pattern
   files <- googledrive::drive_ls(path = as_id(folderUrl),# it only needs the last bit of the https address. 
                                  pattern = group)
-  browser()
+  
   files2 <- as_tibble(files)
   filesToDownload <- files2[grep('_breeding_', files2$name, value = FALSE),]
   filesToDownload <- filesToDownload[grep('range_masked.tif$', 
@@ -20,7 +20,7 @@ downloadRasters <- function(folderUrl,
               separate(data = ., col = name, 
                        into = c('type', 'frst', 'spc', 'v1', 'v2', 'yr', 'y2', 'gcm', 'rng', 'msk'),
                        sep = '_')
-
+  browser()
   downloadRas <- function(sp){
     #sp <- birdList[2]
     subdir <- glue('{path}/{sp}')
