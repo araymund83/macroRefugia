@@ -10,8 +10,7 @@ source('./R/fatTail.R')
 # Load data ---------------------------------------------------------------
 pathFut <- 'inputs/predictions'
 pathPres <- 'inputs/present'
-dirsFut <- fs::dir_ls(pathFut, type =
-                        'directory')
+dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 gcms <- c('CCSM4', 'GFDLCM3', 'INMCM4')
 species <- basename(dirsFut)
@@ -19,7 +18,7 @@ ext <- c(-5546387, 5722613, -2914819, 5915181)
 
 # Velocity metric ---------------------------------------------------------
 get_velocity <- function(sp){
- #sp <- species[2]
+ #sp <- species[43] # use for testing
   message(crayon::blue('Starting with:', sp, '\n'))
   flsFut <- grep(sp, dirsFut, value = TRUE)
   dirPres <- grep(sp, dirsPres, value = TRUE)
@@ -96,18 +95,34 @@ get_velocity <- function(sp){
    
     ## obtain mean for the reference stack
     ref.stk <- map(1:length(rs), function(h) rs[[h]][[2]])
+    
+    ## check that all rasters match
+   # if(!compareGeom(ref.stk[[1]],ref.stk[[2]], ref.stk[[3]], crs = TRUE, ext = TRUE,
+    #               rowcol = TRUE)){
+    #warning(glue(ext of rasters don't match, need to resample))
+    #}
     ## the only way I could solve the extention and dimension problems was by resampling
     ref.stk[[1]]<- resample(ref.stk[[1]], ref.stk[[3]])
     ref.stk[[2]]<- resample(ref.stk[[2]], ref.stk[[3]])
     #ref.stk <- map(1:length(rs), function(h) crop(ref.stk[[h]], ext(emptyRas))) # is tis not croping to the same extent
     ref.stk <- rast(ref.stk)
-    ref.stk <- terra::app(t, fun = 'mean')
+    names(ref.stk) <- glue('y{yrs}')
+    ref.stk_mean <- terra::app(ref.stk, fun = 'mean')
     
     # Write these rasters
     out <- glue('./outputs/velocity/{sp}')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
-    terra::writeRaster(ftr.stk, glue('{out}/{sp}_futprev_{rcp[k]}.tif'), overwrite = TRUE)
-    terra::writeRaster(ref.stk, glue('{out}/{sp}refugia_{rcp[k]}.tif'), overwrite = TRUE)
+    terra::writeRaster(ftr.stk, glue('{out}/{sp}_futprev_{rcp[k]}.tif'),
+                       filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
+                       gdal = c('COMPRESS=ZIP'))
+    
+    terra::writeRaster(ref.stk, glue('{out}/{sp}_ refugia_{rcp[k]}_{names(ref.stk)}'), 
+                        filetype = 'GTiff',datatype = 'INTU2U', overwrite = TRUE,
+                       gdal = c('COMPRESS = ZIP'))
+    
+    terra::writeRaster(ref.stk_mean, glue('{out}/{sp}_refugiaMean_{rcp[k]}.tif'),
+                       filetype = 'GTiff', datatype = 'INTU2U',overwrite = TRUE,
+                       gdal = c('COMPRESS = ZIP'))
     cat('Finish!\n')
     })
   }
@@ -115,6 +130,7 @@ get_velocity <- function(sp){
 # Apply the function velocity ---------------------------------------------
 map(species, get_velocity)
 
-parfrow
+# plot 3 graphs on the same window
+#par(mfrow = c(1, 3))
 
 
