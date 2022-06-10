@@ -1,16 +1,15 @@
-pathFut <- 'inputs/predictions'
-pathPres <- 'inputs/present'
+pathFut <- 'inputs/western_for'
+pathPres <- 'inputs/pres_western'
 dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 #list the files within each directory 
 filesFut <- list.files(dirsFut, full.names = TRUE)
 filesPres <- list.files(dirsPres, full.names = TRUE)
 ##read the rasters 
-filesFut <-  rast(filesFut)
-filesPres <- rast(filesPres)
+filesFut <-  terra::rast(filesFut)
+filesPres <- terra::rast(filesPres)
 
 ##get the extent for all rasters (creates an object class SpatExt)
-
 rast_extPres<- lapply(filesPres, terra::ext)
 rast_extFut<- lapply(filesFut, terra::ext)
 
