@@ -166,8 +166,7 @@ get_velocity <- function(sp){
    
   
 # Apply the function velocity ---------------------------------------------
-map(species[30:31],get_velocity)
-map(species[23:25],get_velocity)
+map(species,get_velocity)
 
 
 
