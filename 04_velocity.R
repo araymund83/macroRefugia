@@ -8,8 +8,8 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 source('./R/fatTail.R')
 # Load data ---------------------------------------------------------------
-pathFut <- 'inputs/grasslands_fut'
-pathPres <- 'inputs/pres_grasslands'
+pathFut <- 'inputs/subtropical_fut'
+pathPres <- 'inputs/pres_subtropical'
 dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 gcms <- c('CCSM4', 'GFDLCM3', 'INMCM4')
@@ -147,13 +147,13 @@ get_velocity <- function(sp){
     ref.stk_mean <- terra::app(ref.stk, fun = 'mean')
     
     # Write these rasters
-    out <- glue('./outputs/velocity/grasslands/{sp}')
+    out <- glue('./outputs/velocity/subtropical/{sp}')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.stk, glue('{out}/{sp}_futprev_{rcp[k]}.tif'),
                        filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
                        gdal = c('COMPRESS=ZIP'))
     
-    terra::writeRaster(ref.stk, glue('{out}/{sp}_ refugia_{rcp[k]}_{names(ref.stk)}'), 
+    terra::writeRaster(ref.stk, glue('{out}/{sp}_ refugia_{rcp[k]}_{names(ref.stk)}.tif'), 
                         filetype = 'GTiff',datatype = 'INTU2U', overwrite = TRUE,
                        gdal = c('COMPRESS = ZIP'))
     
@@ -167,6 +167,9 @@ get_velocity <- function(sp){
   
 # Apply the function velocity ---------------------------------------------
 map(species,get_velocity)
+map(species[6:7],get_velocity)
+map(species[62],get_velocity)
+map(species[81],get_velocity)
 
 
 
