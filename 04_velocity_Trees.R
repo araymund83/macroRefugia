@@ -15,7 +15,7 @@ filesFut <- list.files('./inputs/tree_spp/future_thresholded',
 filesPres <- list.files('./inputs/tree_spp/pres_thresholded',
                         full.names = TRUE)
 species <- basename(filesPres)
-species <-  str_sub(species, end = -24)
+species <-  str_sub(species, end = -31)
 
 # Velocity metric ---------------------------------------------------------
 get_velocity <- function(sp){
@@ -38,7 +38,7 @@ get_velocity <- function(sp){
       rstPres <- terra::rast(flePres)
       rstFut <- terra::rast(fleFut)
       emptyRas <- rstPres * 0 +1
-      mask <- emptyRas
+      
      
     tblPres <- terra::as.data.frame(rstPres, xy = TRUE)
     colnames(tblPres)[3] <- 'prev'
@@ -74,8 +74,9 @@ get_velocity <- function(sp){
     d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5))
     sppref <- rast(d1b[, c(2, 3, 6)])
     sppref[is.na(sppref)] <- 0
+    crs(sppref)<- crs(rstPres)
+    ext(sppref)<- ext(rstPres)
     sppref <- crop(sppref, emptyRas)
-    sppref<- terra::mask(sppref, emptyRas)
     refstack <- sppref
     
     #rstFut <- crop(rstFut,emptyRas)
@@ -98,7 +99,7 @@ get_velocity <- function(sp){
                        filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
                        gdal = c('COMPRESS=ZIP'))
     
-    message(crayon::bgMagenta('Finish!\n'))
+    message(crayon::magenta('Finish!\n'))
 })
 }
 
