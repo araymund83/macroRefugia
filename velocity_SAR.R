@@ -92,7 +92,7 @@ get_velocity <- function(sp){
     
     ftr.stk <- rast(ftr.stk)
     names(ftr.stk) <- glue('y{yrs}')
-    fut.stk <- ftr.stk * 100  ## multipy the values for 100 to reduce file size. 
+    fut.stk <- ftr.stk * 100  ## multiply the values for 100 to reduce file size. 
   
     ## obtain mean for the reference stack
     ref.stk <- map(1:length(rsltdo), function(h) rsltdo[[h]][[2]])
