@@ -8,16 +8,17 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 source('./R/fatTail.R')
 # Load data ---------------------------------------------------------------
-pathFut <- 'inputs/arctic_fut'
-pathPres <- 'inputs/pres_arctic'
+pathFut <- 'inputs/aridlands_fut'
+pathPres <- 'inputs/pres_aridlands'
 dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 species <- basename(dirsFut)
 ext <- c(-5546387, 5722613, -2914819, 5915181) 
 
+
 # Velocity metric ---------------------------------------------------------
 get_velocity <- function(sp){
- sp <- species[2] # use for testing
+ #sp <- species[12] # use for testing
   message(crayon::blue('Starting with:', sp, '\n'))
   flsFut <- grep(sp, dirsFut, value = TRUE)
   dirPres <- grep(sp, dirsPres, value = TRUE)
@@ -27,11 +28,11 @@ get_velocity <- function(sp){
   yrs <- c('2025','2055', '2085')
  
   rsltdo <- map(.x = 1:length(rcp), function(k){
-    message(crayon::blue('Applying to rcp', k ,'\n'))
+    message(crayon::blue('Applying to rcp', rcp[k] ,'\n'))
     flsFut <- grep(rcp[k], flsFut, value = TRUE)
   
     rs <- map(.x = 1:length(yrs), .f = function(i){
-      message(crayon::blue('Applying to year',i, '\n'))
+      message(crayon::blue('Applying to year',yrs[i], '\n'))
       flsPres <- dir_ls(dirPres)
       
       cat(flsPres, '\n')
@@ -40,7 +41,7 @@ get_velocity <- function(sp){
       flesFut <- grep(rcp[k], flesFut, value = TRUE)
      
        vel <- map(.x = 1:length(gcms), .f = function(j){
-        message(crayon::blue('Applying to gcm',j, '\n'))
+        message(crayon::blue('Applying to gcm',gcms[j], '\n'))
         fleFut <- grep(gcms[j], flesFut, value = TRUE)
         rstPres <- terra::rast(flsPres)
         rstFut <- terra::rast(fleFut)
@@ -98,35 +99,32 @@ get_velocity <- function(sp){
     #ext(ftr.mean) <- ext
    
   ## obtain mean for the reference stack
-    ref.stk <- map(1:length(vel), function(h) vel[[h]][[2]])
-    ref.stk <- rast(ref.stk)
-    ref.mean <- app(ref.stk, fun = mean, na.rm = TRUE)
+    # ref.stk <- map(1:length(vel), function(h) vel[[h]][[2]])
+    # ref.stk <- rast(ref.stk)
+    # ref.mean <- app(ref.stk, fun = mean, na.rm = TRUE)
     # Write these rasters
-    out <- glue('./outputs/velocity/arctic/{sp}')
+    out <- glue('./outputs/velocity/aridlands/{sp}')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.mean, glue('{out}/{sp}_refugia_{rcp[k]}_{yrs[i]}.tif'),
                        filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
                        gdal = c('COMPRESS=ZIP'))
     
-    terra::writeRaster(ref.mean, glue('{out}/{sp}_ futprev_{rcp[k]}_{yrs[i]}.tif'), 
-                       filetype = 'GTiff',datatype = 'INTU2U', overwrite = TRUE,
-                       gdal = c('COMPRESS = ZIP'))
+    # terra::writeRaster(ref.mean, glue('{out}/{sp}_ futprev_{rcp[k]}_{yrs[i]}.tif'), 
+    #                    filetype = 'GTiff',datatype = 'INTU2U', overwrite = TRUE,
+    #                    gdal = c('COMPRESS = ZIP'))
   
     cat('Finish!\n')  
-    
-   
+  
   cat('Done ', flsFut[i], '\n')
   
-  cat('Finish!\n')  
-  
-  
+cat('Finish!\n')  
   })
     })
 }
    
   
 # Apply the function velocity ---------------------------------------------
-map(species[32],get_velocity)
+map(species,get_velocity)
 
 
 
@@ -134,5 +132,6 @@ map(species[32],get_velocity)
 
 # plot 3 graphs on the same window
 par(mfrow = c(1, 2))
+par(mfrow = c(1, 1))
 
 
