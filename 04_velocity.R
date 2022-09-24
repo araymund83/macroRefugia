@@ -8,8 +8,8 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 source('./R/fatTail.R')
 # Load data ---------------------------------------------------------------
-pathFut <- 'inputs/aridlands_fut'
-pathPres <- 'inputs/pres_aridlands'
+pathFut <- 'inputs/boreal_fut'
+pathPres <- 'inputs/pres_boreal'
 dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 species <- basename(dirsFut)
@@ -18,7 +18,7 @@ ext <- c(-5546387, 5722613, -2914819, 5915181)
 
 # Velocity metric ---------------------------------------------------------
 get_velocity <- function(sp){
- #sp <- species[12] # use for testing
+ sp <- species[1] # use for testing
   message(crayon::blue('Starting with:', sp, '\n'))
   flsFut <- grep(sp, dirsFut, value = TRUE)
   dirPres <- grep(sp, dirsPres, value = TRUE)
@@ -103,11 +103,10 @@ get_velocity <- function(sp){
     # ref.stk <- rast(ref.stk)
     # ref.mean <- app(ref.stk, fun = mean, na.rm = TRUE)
     # Write these rasters
-    out <- glue('./outputs/velocity/aridlands/{sp}')
+    out <- glue('./outputs/velocity/boreal2/{sp}')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.mean, glue('{out}/{sp}_refugia_{rcp[k]}_{yrs[i]}.tif'),
-                       filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
-                       gdal = c('COMPRESS=ZIP'))
+                       filetype = 'GTiff', datatype = 'INT4U',  overwrite = TRUE)
     
     # terra::writeRaster(ref.mean, glue('{out}/{sp}_ futprev_{rcp[k]}_{yrs[i]}.tif'), 
     #                    filetype = 'GTiff',datatype = 'INTU2U', overwrite = TRUE,
@@ -124,11 +123,7 @@ cat('Finish!\n')
    
   
 # Apply the function velocity ---------------------------------------------
-map(species,get_velocity)
-
-
-
-
+map(species[7:8],get_velocity)
 
 # plot 3 graphs on the same window
 par(mfrow = c(1, 2))
