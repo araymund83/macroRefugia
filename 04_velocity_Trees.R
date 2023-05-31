@@ -9,35 +9,36 @@ rm(list = ls())
 source('./R/fatTail.R')
 
 # Load data ---------------------------------------------------------------
-filesFut <- list.files('./inputs/tree_spp/future_thresholded', 
+filesFut <- list.files('./inputs/tree_spp/fut_thresholded2', 
                       pattern = '.tif', full.names = TRUE)
 
-filesPres <- list.files('./inputs/tree_spp/pres_thresholded',
+filesPres <- list.files('./inputs/tree_spp/pres_thresholded2',
                         full.names = TRUE)
 species <- basename(filesPres)
-species <-  str_sub(species, end = -31)
+species <-  str_sub(species, end = -35)
+species <- unique(species)
 
 # Velocity metric ---------------------------------------------------------
 get_velocity <- function(sp){
-  #sp <- species[1] # use for testing
+sp <- species[1] # use for testing
   message(crayon::blue('Starting with:', sp, '\n'))
   flsPres <- grep(sp, filesPres, value = TRUE)
   flsFut <- grep(sp, filesFut, value = TRUE)
-  rcp <- c('_rcp45_', '_rcp85_')
-  yrs <- c('2025', '2055', '2085')
+  ssp <- c('_ssp126_', '_ssp245_', '_ssp370_', '_ssp585_')
+  yrs <- c('2040', '2070', '2100')
   
-  rsltdo <- map(.x = 1:length(rcp), function(k){
-    message(crayon::blue('Applying to rcp', rcp[k] ,'\n'))
-    flsFut <- grep(rcp[k], flsFut, value = TRUE)
+  rsltdo <- map(.x = 1:length(ssp), function(k){
+    message(crayon::blue('Applying to', ssp[k] ,'\n'))
+    flsFut <- grep(ssp[k], flsFut, value = TRUE)
     
     rs <- map(.x = 1:length(yrs), function(i){
       message(crayon::blue('Applying to year',yrs[i], '\n'))
-      flePres <- grep('baseline', flsPres, value = TRUE)
+      flePres <- grep('p1991', flsPres, value = TRUE) # p1991 for the second baseline
       fleFut <- grep(yrs[i], flsFut, value = TRUE)
       
       rstPres <- terra::rast(flePres)
       rstFut <- terra::rast(fleFut)
-      emptyRas <- rstPres * 0 +1
+      emptyRas <- rstPres * 0 + 1
       
      
     tblPres <- terra::as.data.frame(rstPres, xy = TRUE)
@@ -45,15 +46,13 @@ get_velocity <- function(sp){
     tblFut <- terra::as.data.frame(rstFut, xy = TRUE)
     colnames(tblFut)[3] <- 'prev'
     
-    p.xy <-
-      mutate(tblPres, pixelID = 1:nrow(tblPres)) %>% dplyr::select(pixelID, x, y, prev)
-    f.xy <-
-      mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% dplyr::select(pixelID, x, y, prev)
+    p.xy <- mutate(tblPres, pixelID = 1:nrow(tblPres)) %>% 
+      dplyr::select(pixelID, x, y, prev)
+    f.xy <- mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% 
+      dplyr::select(pixelID, x, y, prev)
     
-    p.xy2 <-
-      filter(p.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
-    f.xy2 <-
-      filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
+    p.xy2 <- filter(p.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
+    f.xy2 <- filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
     
     if (nrow(f.xy) > 0) {
       d.ann <- as.data.frame(ann(
@@ -71,15 +70,13 @@ get_velocity <- function(sp){
     colnames(f.xy) <- c('ID', 'X', 'Y', 'Pres')
     f.xy <- as_tibble(f.xy)
     d1b <- left_join(f.xy, d1b, by = c('ID', 'X', 'Y'))
-    d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5))
+ ## TODO: CONVERT MATRIX TO A RASTER AND SAVE IT TO EXTRACT VELOCITY
+    d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5)) # Creates refugia index 
     sppref <- rast(d1b[, c(2, 3, 6)])
-    sppref[is.na(sppref)] <- 0
+    #sppref[is.na(sppref)] <- 0
+    sppref <-  extend(sppref, rstPres,snap = 'near')
     crs(sppref)<- crs(rstPres)
-    ext(sppref)<- ext(rstPres)
-    sppref <- crop(sppref, emptyRas)
     refstack <- sppref
-    
-    #rstFut <- crop(rstFut,emptyRas)
     futprevstack <- rstFut
     
     message(crayon::yellow('Done ', flsFut, '\n'))
@@ -90,14 +87,14 @@ get_velocity <- function(sp){
     ftr.stk <- map(1:length(rs), function(h) rs[[h]][[2]])
     ftr.stk <- rast(ftr.stk)
     ftr.stk <- ftr.stk * 100  ## multiply the values for 100 to reduce file size. 
-    names(ftr.stk) <- glue('{sp}_refugia_{rcp[k]}{yrs}')
+    names(ftr.stk) <- glue('{sp}_refugia_1991_{ssp[k]}{yrs}')
     
     # Write these rasters
-    out <- glue('./outputs/velocity/tree_spp/')
+    out <- glue('./outputs/velocity/tree_spp2/')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.stk, glue('{out}/{names(ftr.stk)}.tif'),
-                       filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
-                       gdal = c('COMPRESS=ZIP'))
+                       filetype = 'GTiff', datatype = 'INT4U',  
+                       overwrite = TRUE)
     
     message(crayon::magenta('Finish!\n'))
 })
