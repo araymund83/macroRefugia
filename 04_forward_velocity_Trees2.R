@@ -9,13 +9,13 @@ rm(list = ls())
 source('./R/fatTail.R')
 
 # Load data ---------------------------------------------------------------
-filesFut <- list.files('./inputs/tree_spp/fut_thresholded2', 
+filesFut <- list.files('./inputs/tree_spp/fut_thresholded2/sp_consensus', 
                        pattern = '.tif', full.names = TRUE)
 
-filesPres <- list.files('./inputs/tree_spp/pres_thresholded2',
+filesPres <- list.files('./inputs/tree_spp/pres_thresholded2/sp_consensus',
                         full.names = TRUE)
 species <- basename(filesPres)
-species <-  str_sub(species, end = -35)
+species <-  str_sub(species, end = -27) #use -35 for the files outside sp consensus
 species <- unique(species)
 
 # Velocity metric ---------------------------------------------------------
@@ -71,11 +71,12 @@ get_forward_velocity <- function(sp, baseline){
       d1b <- left_join(p.xy, d1b, by = c('ID', 'X', 'Y'))
       #create a raster
       velRas <- rast(d1b[, c(2,3,5)]) 
+      velRas[is.na(velRas)] <- 0 #remove na 
       #assign extend and projection
       velref <-  extend(velRas, rstPres, snap = 'near')
       crs(velref)<- crs(rstPres)
       #save the backward velocity calculation into a raster
-      out <- glue('./outputs/velocity/treeVelRas/')
+      out <- glue('./outputs/velocity/treeVelRas/sp_consensus')
       ifelse(!file.exists(out), dir_create(out), print('Already exists'))
       terra::writeRaster(velref, glue('{out}/{sp}_{baseline}_forwardVel{ssp[k]}{yrs[i]}.tif'),
                          filetype = 'GTiff', datatype = 'INT4U',  
@@ -83,7 +84,7 @@ get_forward_velocity <- function(sp, baseline){
       # Creates refugia index 
       d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5)) 
       sppref <- rast(d1b[, c(2, 3, 6)])
-      #sppref[is.na(sppref)] <- 0
+      sppref[is.na(sppref)] <- 0 #remove na 
       sppref <-  extend(sppref, rstPres, snap = 'near')
       crs(sppref)<- crs(rstPres)
       refstack <- sppref
@@ -100,7 +101,7 @@ get_forward_velocity <- function(sp, baseline){
     names(ftr.stk) <- glue('{sp}_refugia_{baseline}_{ssp[k]}{yrs}')
     
     # Write these rasters
-    out <- glue('./outputs/velocity/tree_spp2/')
+    out <- glue('./outputs/velocity/tree_spp2/sp_consensus')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.stk, glue('{out}/forward_{names(ftr.stk)}.tif'),
                        filetype = 'GTiff', datatype = 'INT4U',  

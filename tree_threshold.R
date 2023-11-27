@@ -1,6 +1,8 @@
 # Load libraries ----------------------------------------------------------
 library(pacman)
 pacman::p_load(dplyr, fs, fst, gdata, glue, rasterVis, stringr,tidyverse, terra)
+g <- gc(reset = TRUE)
+rm(list = ls())
 
 speciesList <- c('ABIEAMA', 'ABIEGRA', 'ABIELAS', 'ACERRUB', 'ACERSAC', 'ALNURUB',
                  'BETUALL', 'FAGUGRA', 'LARILAR', 'PICEENG', 'PICEGLA', 'PICEMAR',
@@ -16,15 +18,17 @@ filesFut <- list.files(pathFut, pattern = '.tif$', full.names = TRUE)
 species <- speciesList
 
 reclass_Ras <- function(sp){
-  sp <- species[1]
+  #sp <- species[1]
   message(crayon::blue('Starting with:', sp, '\n'))
   rcp <- c('_rcp45_', '_rcp85_')
   yrs <- c('2025', '2055', '2085')
+  targetCRS <- '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
   
   reclass <- map(.x = 1:length(rcp), function(k){
-    message(crayon::blue('Starting with:', sp, '\n'))
+    message(crayon::blue('Starting with:', rcp[k], '\n'))
     flsFut<- grep(sp, filesFut, value = TRUE)
     flsFut <- grep(rcp[k], flsFut, value = TRUE)
+    flsPres <- grep(sp, filesPres, value = TRUE)
     
     year <- map(.x = 1:length(yrs), .f = function(i){
       message(crayon::blue('Applying to year', yrs[i], '\n'))
@@ -32,12 +36,13 @@ reclass_Ras <- function(sp){
       thr <- filter(thrs, Code == sp)
       val <- unique(thr$CutOff)
       rs <- terra ::rast(fl)
+      rs <- terra::project(rs, targetCRS, method = 'near')
       rs[rs < val] <- 0
       rs[rs >= val] <- 1
       # Write the rasters
       out <- glue('./inputs/tree_spp/future_thresholded/')
       ifelse(!file.exists(out), dir_create(out), print('Already exists'))
-      terra::writeRaster(rs, glue('{out}/{sp}_{rcp[k]}_{yrs[i]}_treshold.tif'),
+      terra::writeRaster(rs, glue('{out}/{sp}_{rcp[k]}_{yrs[i]}_tresholded_proj.tif'),
                          filetype = 'GTiff', datatype = 'INTU2U',  overwrite = TRUE,
                          gdal = c('COMPRESS=ZIP'))
       cat('=====Done========! \n')

@@ -9,18 +9,18 @@ rm(list = ls())
 source('./R/fatTail.R')
 
 # Load data ---------------------------------------------------------------
-filesFut <- list.files('./inputs/tree_spp/fut_thresholded2', 
+filesFut <- list.files('./inputs/tree_spp/fut_thresholded2/sp_consensus', 
                       pattern = '.tif', full.names = TRUE)
 
-filesPres <- list.files('./inputs/tree_spp/pres_thresholded2',
+filesPres <- list.files('./inputs/tree_spp/pres_thresholded2/sp_consensus',
                         full.names = TRUE)
 species <- basename(filesPres)
-species <-  str_sub(species, end = -35)
+species <-  str_sub(species, end = -27) # use -35 for species outside consensus. 
 species <- unique(species)
 
 # Backwards Velocity metric ---------------------------------------------------------
 get_backward_velocity <- function(sp, baseline){
- sp <- species[1] # use for testing
+# <- species[2] # use for testing
   message(crayon::blue('Starting with:', sp, '\n'))
   flsPres <- grep(sp, filesPres, value = TRUE)
   flsFut <- grep(sp, filesFut, value = TRUE)
@@ -34,7 +34,7 @@ get_backward_velocity <- function(sp, baseline){
     
     rs <- map(.x = 1:length(yrs), function(i){
       message(crayon::blue('Applying to year',yrs[i], '\n'))
-      flePres <- grep(baseline, flsPres, value = TRUE) #p 1961 for the first baseline, p1991 for the second baseline
+      flePres <- grep(baseline, flsPres, value = TRUE) #'p1961' for the first baseline, p1991 for the second baseline
       fleFut <- grep(yrs[i], flsFut, value = TRUE)
       #read rasters 
       rstPres <- terra::rast(flePres)
@@ -70,12 +70,13 @@ get_backward_velocity <- function(sp, baseline){
     f.xy <- as_tibble(f.xy)
     d1b <- left_join(f.xy, d1b, by = c('ID', 'X', 'Y'))
     #create a raster
-    velRas <- rast(d1b[, c(2,3,5)]) 
+    velRas <- rast(d1b[, c(2,3,5)])
+    velRas[is.na(velRas)] <- 0 #remove na 
     #assign extend and projection
-    velref <-  extend(velRas, rstPres, snap = 'near')
-    crs(velref)<- crs(rstPres)
+    velref <-  extend(velRas, emptyRas, snap = 'near')
+    crs(velref)<- crs(emptyRas)
     #save the backward velocity calculation into a raster
-    out <- glue('./outputs/velocity/treeVelRas/')
+    out <- glue('./outputs/velocity/treeVelRas/sp_consensus')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(velref, glue('{out}/{sp}_{baseline}_backwardVel{ssp[k]}{yrs[i]}.tif'),
                        filetype = 'GTiff', datatype = 'INT4U',  
@@ -83,24 +84,24 @@ get_backward_velocity <- function(sp, baseline){
     # Creates refugia index 
     d1b <- mutate(d1b, fat = fattail(bvel, 8333.3335, 0.5)) 
     sppref <- rast(d1b[, c(2, 3, 6)])
-    #sppref[is.na(sppref)] <- 0
-    sppref <-  extend(sppref, rstPres, snap = 'near')
-    crs(sppref)<- crs(rstPres)
-    refstack <- sppref
+    sppref[is.na(sppref)] <- 0 #remove na 
+    sppref <-  extend(sppref, emptyRas, snap = 'near')
+    crs(sppref)<- crs(emptyRas)
+    refstack <- sppref #refugia raster
     futprevstack <- rstFut
     
     message(crayon::yellow('Done ', flsFut, '\n'))
     return(list(futprevstack, refstack))
    })
     
-    # Getting the Future rasters
+    # Getting the refugia rasters
     ftr.stk <- map(1:length(rs), function(h) rs[[h]][[2]])
     ftr.stk <- rast(ftr.stk)
     ftr.stk <- ftr.stk * 100  ## multiply the values for 100 to reduce file size. 
     names(ftr.stk) <- glue('{sp}_refugia_{baseline}_{ssp[k]}{yrs}')
     
     # Write these rasters
-    out <- glue('./outputs/velocity/tree_spp2/')
+    out <- glue('./outputs/velocity/tree_spp2/sp_consensus')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.stk, glue('{out}/backward_{names(ftr.stk)}.tif'),
                        filetype = 'GTiff', datatype = 'INT4U',  
@@ -111,7 +112,7 @@ get_backward_velocity <- function(sp, baseline){
 }
 
 # Apply the function velocity ---------------------------------------------
-map(species,baseline = 'p1991', get_backward_velocity)
+map(species[2:7], baseline = 'p1991', get_backward_velocity)
 
 
 # Upload to Drive----------------------------------------------------------
