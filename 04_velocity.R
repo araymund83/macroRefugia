@@ -8,8 +8,8 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 source('./R/fatTail.R')
 # Load data ---------------------------------------------------------------
-pathFut <- 'inputs/subtropical_fut'
-pathPres <- 'inputs/pres_subtropical'
+pathFut <- 'inputs/generalist_fut'
+pathPres <- 'inputs/pres_generalist'
 dirsFut <- fs::dir_ls(pathFut, type = 'directory')
 dirsPres <- fs::dir_ls(pathPres, type = 'directory')
 species <- basename(dirsFut)
@@ -25,7 +25,8 @@ get_velocity <- function(sp){
   flsFut <- dir_ls(flsFut)
   rcp <- c('_45_', '_85_')
   gcms <- c('CCSM4', 'GFDLCM3', 'INMCM4')
-  yrs <- c('2025','2055', '2085')
+  yrs <- c( '2085')
+  #yrs <- c('2025','2055', '2085')
  
   rsltdo <- map(.x = 1:length(rcp), function(k){
     message(crayon::blue('Applying to rcp', rcp[k] ,'\n'))
@@ -36,7 +37,8 @@ get_velocity <- function(sp){
       flsPres <- dir_ls(dirPres)
       
       cat(flsPres, '\n')
-      flsPres <- grep('range_masked.tif', flsPres, value = TRUE)
+      #flsPres <- grep('range_masked.tif', flsPres, value = TRUE)
+      flsPres <- grep('range.tif', flsPres, value = TRUE)
       flesFut <- grep(yrs[i], flsFut, value = TRUE)
       flesFut <- grep(rcp[k], flesFut, value = TRUE)
      
@@ -56,13 +58,11 @@ get_velocity <- function(sp){
         
         p.xy <- mutate(tblPres, pixelID = 1:nrow(tblPres)) %>%
           dplyr::select(pixelID, x, y, prev)
-        f.xy <-
-          mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% dplyr::select(pixelID, x, y, prev)
+        f.xy <- mutate(tblFut, pixelID = 1:nrow(tblFut)) %>% 
+          dplyr::select(pixelID, x, y, prev)
         
-        p.xy2 <-
-          filter(p.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
-        f.xy2 <-
-          filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
+        p.xy2 <- filter(p.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
+        f.xy2 <- filter(f.xy, prev > 0.1) %>% dplyr::select(1:3) %>% as.matrix()
         
         if (nrow(f.xy) > 0) {
           d.ann <- as.data.frame(ann(
@@ -103,7 +103,7 @@ get_velocity <- function(sp){
     # ref.stk <- rast(ref.stk)
     # ref.mean <- app(ref.stk, fun = mean, na.rm = TRUE)
     # Write these rasters
-    out <- glue('./outputs/velocity/subtropical')
+    out <- glue('./outputs/velocity/generalist')
     ifelse(!file.exists(out), dir_create(out), print('Already exists'))
     terra::writeRaster(ftr.mean, glue('{out}/{sp}_refugia{rcp[k]}{yrs[i]}.tif'),
                        filetype = 'GTiff', datatype = 'INT4U',  overwrite = TRUE)
@@ -119,10 +119,12 @@ cat('Finish!\n')
    
   
 # Apply the function velocity ---------------------------------------------
-map(species,get_velocity)
-map(species[1:12],get_velocity)
-map(species[14:15],get_velocity)
-map(species[17:35],get_velocity)
+map(species[46],get_velocity)
+map(species[47:51],get_velocity)
+map(species[53:60],get_velocity)
+map(species[23:24],get_velocity)
+map(species[27:33],get_velocity)
+map(species[35],get_velocity)
 
 # plot 3 graphs on the same window
 par(mfrow = c(1, 2))
