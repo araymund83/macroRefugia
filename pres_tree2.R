@@ -13,7 +13,7 @@ dirs <- fs::dir_ls(root, type = 'directory') # reads directories
 dirs <- as.character(dirs)
 species <- basename(dirs) # gets the species codes
 #thr <- 0.3 #from Zhao et al 2023 https://doi.org/10.1016/j.ecolind.2023.110072
-thrs <- read_csv('./inputs/tree_spp/treeCutoff.csv')
+thrs <- read_csv('./inputs/treeCutoff.csv')
 
 targetCRS <- '+proj=aea +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
 
@@ -31,7 +31,7 @@ reclass_Ras <- function(sp){
   rs[rs < val] <- 0
   rs[rs >= val] <- 1
  # Write the rasters
-  out <- glue('./inputs/tree_spp/fut_thresholded2/')
+  out <- glue('./inputs/tree_spp/fut_thresholded2/sp_consensusPres')
   ifelse(!file.exists(out), dir_create(out), print('Already exists'))
   terra::writeRaster(rs, glue('{out}/{sp}_{names(rs)}_thresholded_proj.tif'),
                      filetype = 'GTiff',  overwrite = TRUE,

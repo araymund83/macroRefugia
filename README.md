@@ -1,5 +1,5 @@
-### MacroRefugia
-#This code is an update from the code used in Stralberg et al. (2018)
+### MacroRefugia Indices for North American Avifauna
+#Macrorefugia metricsde is an update from the code used in Stralberg et al. (2018)
 #It generates the climate-change refugia indices for individual species based on 
 #species distribution model predictions (for birds we use:
 #2020 Audobon models https://www.audubon.org/climate/survivalbydegrees, documented
